@@ -15,27 +15,65 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = isset($_POST['email']) ? trim($_POST['email']) : '';
     $phone = isset($_POST['phone']) ? trim($_POST['phone']) : '';
     $gender = isset($_POST['gender']) ? trim($_POST['gender']) : '';
+    $date_of_birth = isset($_POST['date_of_birth']) ? trim($_POST['date_of_birth']) : '';
     $address = isset($_POST['address']) ? trim($_POST['address']) : '';
     $region = isset($_POST['region']) ? trim($_POST['region']) : '';
     $district = isset($_POST['district']) ? trim($_POST['district']) : '';
-    $postal_code = isset($_POST['postal_code']) ? trim($_POST['postal_code']) : '';
+    $profile_picture = $user['profile_picture'] ?? '';
+
+    // Handle profile picture upload
+    if (isset($_FILES['profile_picture']) && $_FILES['profile_picture']['error'] === UPLOAD_ERR_OK) {
+        $allowed_types = ['image/jpeg', 'image/png', 'image/gif'];
+        $file_type = $_FILES['profile_picture']['type'];
+        $file_size = $_FILES['profile_picture']['size'];
+        $max_size = 5 * 1024 * 1024; // 5MB
+
+        if (!in_array($file_type, $allowed_types)) {
+            $error = 'Invalid file type. Only JPEG, PNG, and GIF are allowed.';
+        } elseif ($file_size > $max_size) {
+            $error = 'File size exceeds 5MB limit.';
+        } else {
+            // Create uploads directory if it doesn't exist
+            $upload_dir = 'assets/uploads/profile_pictures/';
+            if (!is_dir($upload_dir)) {
+                mkdir($upload_dir, 0755, true);
+            }
+
+            // Generate unique filename
+            $file_ext = pathinfo($_FILES['profile_picture']['name'], PATHINFO_EXTENSION);
+            $profile_picture = 'user_' . $_SESSION['user_id'] . '_' . time() . '.' . $file_ext;
+            $file_path = $upload_dir . $profile_picture;
+
+            // Delete old profile picture if exists
+            if ($user['profile_picture'] && file_exists($upload_dir . $user['profile_picture'])) {
+                unlink($upload_dir . $user['profile_picture']);
+            }
+
+            if (!move_uploaded_file($_FILES['profile_picture']['tmp_name'], $file_path)) {
+                $error = 'Failed to upload profile picture.';
+                $profile_picture = $user['profile_picture'] ?? '';
+            }
+        }
+    }
 
     // For students, don't save phone number
     if ($user['role'] === 'student') {
         $phone = NULL;
     }
 
-    $stmt = $pdo->prepare('UPDATE users SET first_name = ?, last_name = ?, email = ?, phone = ?, gender = ?, address = ?, region = ?, district = ?, postal_code = ? WHERE id = ?');
-    
-    try {
-        $stmt->execute([$first_name, $last_name, $email, $phone, $gender, $address, $region, $district, $postal_code, $_SESSION['user_id']]);
-        $success = 'Profile updated successfully!';
-        // Refresh user data
-        $stmt = $pdo->prepare('SELECT * FROM users WHERE id = ?');
-        $stmt->execute([$_SESSION['user_id']]);
-        $user = $stmt->fetch(PDO::FETCH_ASSOC);
-    } catch (PDOException $e) {
-        $error = 'Failed to update profile. Please try again.';
+    if (empty($error)) {
+        $stmt = $pdo->prepare('UPDATE users SET first_name = ?, last_name = ?, email = ?, phone = ?, gender = ?, date_of_birth = ?, address = ?, region = ?, district = ?, profile_picture = ? WHERE id = ?');
+        
+        try {
+            $stmt->execute([$first_name, $last_name, $email, $phone, $gender, $date_of_birth, $address, $region, $district, $profile_picture, $_SESSION['user_id']]);
+            $success = 'Profile updated successfully!';
+            // Refresh user data
+            $stmt = $pdo->prepare('SELECT * FROM users WHERE id = ?');
+            $stmt->execute([$_SESSION['user_id']]);
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            $error = 'Failed to update profile. Please try again.';
+        }
     }
 }
 ?>
@@ -54,7 +92,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 <div class="card">
     <div class="card-body">
-        <form method="POST" class="form">
+        <form method="POST" class="form" enctype="multipart/form-data">
             <div class="form-row">
                 <div class="form-group">
                     <label for="username">Username</label>
@@ -63,6 +101,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div class="form-group">
                     <label for="email">Email</label>
                     <input type="email" id="email" name="email" value="<?php echo htmlspecialchars($user['email']); ?>" required>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="profile_picture">Profile Picture</label>
+                    <div class="profile-picture-section">
+                        <?php if ($user['profile_picture'] && file_exists('assets/uploads/profile_pictures/' . $user['profile_picture'])): ?>
+                            <div class="current-picture">
+                                <img src="assets/uploads/profile_pictures/<?php echo htmlspecialchars($user['profile_picture']); ?>" alt="Profile Picture" style="max-width: 100px; max-height: 100px; border-radius: 50%; margin-bottom: 10px;">
+                            </div>
+                        <?php endif; ?>
+                        <input type="file" id="profile_picture" name="profile_picture" accept="image/*">
+                        <small>Allowed: JPEG, PNG, GIF (Max 5MB)</small>
+                    </div>
                 </div>
             </div>
 
@@ -86,6 +139,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <option value="Female" <?php echo ($user['gender'] ?? '') === 'Female' ? 'selected' : ''; ?>>Female</option>
                         <option value="Other" <?php echo ($user['gender'] ?? '') === 'Other' ? 'selected' : ''; ?>>Other</option>
                     </select>
+                </div>
+                <div class="form-group">
+                    <label for="date_of_birth">Date of Birth</label>
+                    <input type="date" id="date_of_birth" name="date_of_birth" value="<?php echo htmlspecialchars($user['date_of_birth'] ?? ''); ?>">
                 </div>
                 <div class="form-group">
                     <label for="role">Role</label>
@@ -115,10 +172,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div class="form-group">
                     <label for="district">District</label>
                     <input type="text" id="district" name="district" value="<?php echo htmlspecialchars($user['district'] ?? ''); ?>">
-                </div>
-                <div class="form-group">
-                    <label for="postal_code">Postal Code</label>
-                    <input type="text" id="postal_code" name="postal_code" value="<?php echo htmlspecialchars($user['postal_code'] ?? ''); ?>">
                 </div>
             </div>
 
