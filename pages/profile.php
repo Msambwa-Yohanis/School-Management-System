@@ -14,15 +14,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $last_name = isset($_POST['last_name']) ? trim($_POST['last_name']) : '';
     $email = isset($_POST['email']) ? trim($_POST['email']) : '';
     $phone = isset($_POST['phone']) ? trim($_POST['phone']) : '';
+    $gender = isset($_POST['gender']) ? trim($_POST['gender']) : '';
     $address = isset($_POST['address']) ? trim($_POST['address']) : '';
-    $city = isset($_POST['city']) ? trim($_POST['city']) : '';
-    $state = isset($_POST['state']) ? trim($_POST['state']) : '';
+    $region = isset($_POST['region']) ? trim($_POST['region']) : '';
+    $district = isset($_POST['district']) ? trim($_POST['district']) : '';
     $postal_code = isset($_POST['postal_code']) ? trim($_POST['postal_code']) : '';
 
-    $stmt = $pdo->prepare('UPDATE users SET first_name = ?, last_name = ?, email = ?, phone = ?, address = ?, city = ?, state = ?, postal_code = ? WHERE id = ?');
+    // For students, don't save phone number
+    if ($user['role'] === 'student') {
+        $phone = NULL;
+    }
+
+    $stmt = $pdo->prepare('UPDATE users SET first_name = ?, last_name = ?, email = ?, phone = ?, gender = ?, address = ?, region = ?, district = ?, postal_code = ? WHERE id = ?');
     
     try {
-        $stmt->execute([$first_name, $last_name, $email, $phone, $address, $city, $state, $postal_code, $_SESSION['user_id']]);
+        $stmt->execute([$first_name, $last_name, $email, $phone, $gender, $address, $region, $district, $postal_code, $_SESSION['user_id']]);
         $success = 'Profile updated successfully!';
         // Refresh user data
         $stmt = $pdo->prepare('SELECT * FROM users WHERE id = ?');
@@ -73,13 +79,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             <div class="form-row">
                 <div class="form-group">
-                    <label for="phone">Phone</label>
-                    <input type="tel" id="phone" name="phone" value="<?php echo htmlspecialchars($user['phone'] ?? ''); ?>">
+                    <label for="gender">Gender</label>
+                    <select id="gender" name="gender">
+                        <option value="">Select Gender</option>
+                        <option value="Male" <?php echo ($user['gender'] ?? '') === 'Male' ? 'selected' : ''; ?>>Male</option>
+                        <option value="Female" <?php echo ($user['gender'] ?? '') === 'Female' ? 'selected' : ''; ?>>Female</option>
+                        <option value="Other" <?php echo ($user['gender'] ?? '') === 'Other' ? 'selected' : ''; ?>>Other</option>
+                    </select>
                 </div>
                 <div class="form-group">
                     <label for="role">Role</label>
                     <input type="text" id="role" value="<?php echo ucfirst($user['role']); ?>" disabled>
                 </div>
+            </div>
+
+            <div class="form-row">
+                <?php if ($user['role'] !== 'student'): ?>
+                    <div class="form-group">
+                        <label for="phone">Phone</label>
+                        <input type="tel" id="phone" name="phone" value="<?php echo htmlspecialchars($user['phone'] ?? ''); ?>">
+                    </div>
+                <?php endif; ?>
             </div>
 
             <div class="form-group">
@@ -89,12 +109,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             <div class="form-row">
                 <div class="form-group">
-                    <label for="city">City</label>
-                    <input type="text" id="city" name="city" value="<?php echo htmlspecialchars($user['city'] ?? ''); ?>">
+                    <label for="region">Region</label>
+                    <input type="text" id="region" name="region" value="<?php echo htmlspecialchars($user['region'] ?? ''); ?>">
                 </div>
                 <div class="form-group">
-                    <label for="state">State</label>
-                    <input type="text" id="state" name="state" value="<?php echo htmlspecialchars($user['state'] ?? ''); ?>">
+                    <label for="district">District</label>
+                    <input type="text" id="district" name="district" value="<?php echo htmlspecialchars($user['district'] ?? ''); ?>">
                 </div>
                 <div class="form-group">
                     <label for="postal_code">Postal Code</label>
