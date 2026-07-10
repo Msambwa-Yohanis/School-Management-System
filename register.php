@@ -93,7 +93,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 <div class="form-group">
                     <label for="password">Password</label>
-                    <input type="password" id="password" name="password" required placeholder="At least 6 characters">
+                    <input type="password" id="password" name="password" required placeholder="At least 8 characters">
                 </div>
 
                 <div class="form-group">
