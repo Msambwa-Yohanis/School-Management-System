@@ -15,8 +15,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Validation
     if (empty($username) || empty($email) || empty($password)) {
         $error = 'All fields are required';
-    } elseif (strlen($password) < 6) {
-        $error = 'Password must be at least 6 characters';
+    } elseif (strlen($password) < 8) {
+        $error = 'Password must be at least 8 characters';
     } elseif ($password !== $confirm_password) {
         $error = 'Passwords do not match';
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
