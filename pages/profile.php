@@ -1,5 +1,6 @@
 <?php
 require_once 'config/database.php';
+require_once 'config/regions_districts.php';
 
 // Get current user profile
 $stmt = $pdo->prepare('SELECT * FROM users WHERE id = ?');
@@ -75,6 +76,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'Failed to update profile. Please try again.';
         }
     }
+}
+
+// Get available regions
+$regions = array_keys($regions_districts);
+sort($regions);
+
+// Get districts for current region if set
+$current_districts = [];
+if (!empty($user['region']) && isset($regions_districts[$user['region']])) {
+    $current_districts = $regions_districts[$user['region']];
 }
 ?>
 
@@ -167,11 +178,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <div class="form-row">
                 <div class="form-group">
                     <label for="region">Region</label>
-                    <input type="text" id="region" name="region" value="<?php echo htmlspecialchars($user['region'] ?? ''); ?>">
+                    <select id="region" name="region" required>
+                        <option value="">Select Region</option>
+                        <?php foreach ($regions as $reg): ?>
+                            <option value="<?php echo htmlspecialchars($reg); ?>" <?php echo ($user['region'] ?? '') === $reg ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars($reg); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
                 </div>
                 <div class="form-group">
                     <label for="district">District</label>
-                    <input type="text" id="district" name="district" value="<?php echo htmlspecialchars($user['district'] ?? ''); ?>">
+                    <select id="district" name="district" required>
+                        <option value="">Select District</option>
+                        <?php foreach ($current_districts as $dist): ?>
+                            <option value="<?php echo htmlspecialchars($dist); ?>" <?php echo ($user['district'] ?? '') === $dist ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars($dist); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
                 </div>
             </div>
 
@@ -179,3 +204,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </form>
     </div>
 </div>
+
+<script>
+// Handle region change - populate districts dynamically
+document.getElementById('region').addEventListener('change', function() {
+    const region = this.value;
+    const districtSelect = document.getElementById('district');
+    
+    // Clear current districts
+    districtSelect.innerHTML = '<option value="">Select District</option>';
+    
+    if (region === '') {
+        return;
+    }
+    
+    // Fetch districts for the selected region
+    fetch('api/get_districts.php?region=' + encodeURIComponent(region))
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                data.districts.forEach(district => {
+                    const option = document.createElement('option');
+                    option.value = district;
+                    option.textContent = district;
+                    districtSelect.appendChild(option);
+                });
+            }
+        })
+        .catch(error => console.error('Error fetching districts:', error));
+});
+</script>
