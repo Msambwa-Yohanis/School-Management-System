@@ -1,13 +1,23 @@
 <?php
 session_start();
+require_once 'config/database.php';
+require_once 'config/auth_middleware.php';
+require_once 'config/roles.php';
 
-// Redirect to login if not authenticated
-if (!isset($_SESSION['user_id'])) {
-    header('Location: login.php');
-    exit();
+// Check if user is authenticated
+requireLogin();
+
+// Get requested page
+$page = isset($_GET['page']) ? preg_replace('/[^a-z_]/', '', $_GET['page']) : 'dashboard';
+
+// Check if page exists and user has access
+if (!file_exists('pages/' . $page . '.php') || !canAccessPage($_SESSION['role'], $page)) {
+    $page = 'dashboard';
 }
 
-$page = isset($_GET['page']) ? $_GET['page'] : 'dashboard';
+// Get user role info
+$userRole = $_SESSION['role'];
+$visiblePages = getVisiblePages($userRole);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -17,6 +27,19 @@ $page = isset($_GET['page']) ? $_GET['page'] : 'dashboard';
     <title>School Management System - Dashboard</title>
     <link rel="stylesheet" href="assets/css/style.css">
     <link rel="stylesheet" href="assets/css/dashboard.css">
+    <style>
+        .role-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-top: 8px;
+            text-transform: uppercase;
+            font-weight: bold;
+        }
+    </style>
 </head>
 <body>
     <div class="container">
@@ -25,14 +48,26 @@ $page = isset($_GET['page']) ? $_GET['page'] : 'dashboard';
             <div class="sidebar-header">
                 <h2>SMS</h2>
                 <p>School Management</p>
+                <span class="role-badge"><?php echo htmlspecialchars(getRoleLabel($userRole)); ?></span>
             </div>
             <nav class="sidebar-nav">
                 <ul>
-                    <li><a href="index.php?page=dashboard" class="nav-link <?php echo $page === 'dashboard' ? 'active' : ''; ?>">Dashboard</a></li>
-                    <li><a href="index.php?page=users" class="nav-link <?php echo $page === 'users' ? 'active' : ''; ?>">Users</a></li>
-                    <li><a href="index.php?page=profile" class="nav-link <?php echo $page === 'profile' ? 'active' : ''; ?>">My Profile</a></li>
-                    <li><a href="index.php?page=settings" class="nav-link <?php echo $page === 'settings' ? 'active' : ''; ?>">Settings</a></li>
-                    <li><a href="logout.php" class="nav-link logout">Logout</a></li>
+                    <?php foreach ($visiblePages as $pageKey => $pageData): ?>
+                        <li>
+                            <a href="index.php?page=<?php echo htmlspecialchars($pageKey); ?>" 
+                               class="nav-link <?php echo $page === $pageKey ? 'active' : ''; ?>"
+                               title="<?php echo htmlspecialchars($pageData['label']); ?>">
+                                <span class="nav-icon"><?php echo $pageData['icon']; ?></span>
+                                <span class="nav-text"><?php echo htmlspecialchars($pageData['label']); ?></span>
+                            </a>
+                        </li>
+                    <?php endforeach; ?>
+                    <li>
+                        <a href="logout.php" class="nav-link logout" title="Logout">
+                            <span class="nav-icon">🚪</span>
+                            <span class="nav-text">Logout</span>
+                        </a>
+                    </li>
                 </ul>
             </nav>
         </aside>
@@ -45,7 +80,10 @@ $page = isset($_GET['page']) ? $_GET['page'] : 'dashboard';
                 </div>
                 <div class="header-right">
                     <div class="user-info">
-                        <span><?php echo htmlspecialchars($_SESSION['username']); ?></span>
+                        <span title="Your Role: <?php echo htmlspecialchars(getRoleLabel($userRole)); ?>">
+                            <?php echo htmlspecialchars($_SESSION['username']); ?>
+                            <small>(<?php echo htmlspecialchars(getRoleLabel($userRole)); ?>)</small>
+                        </span>
                     </div>
                 </div>
             </header>
